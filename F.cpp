@@ -1,4 +1,4 @@
-﻿#pragma GCC optimize("Ofast,unroll-loops")
+﻿//#pragma GCC optimize("Ofast,unroll-loops")
  
 #ifdef LOCAL
 #include "debug.h"
@@ -59,7 +59,7 @@ ll x[N], y[N], X[N], Y[N];
 
 Vector <short> g[N];
 
-short mt[2 * N], used[N], timer;
+short mt[2 * N], used[N], matched[N], timer;
 
 bool dfs(short u) {
     if (used[u] == timer) return false;
@@ -93,9 +93,25 @@ bool check(ll t) {
 
     short cnt = 0;
     memset(mt, -1, sizeof mt);
+    memset(matched, 0, sizeof matched);
+
+    for (int u = 0; u < n; u++) {
+        for (int j = 0; j < g[u].size(); j++) {
+            int v = g[u][j];
+            if (mt[v] == -1) {
+                mt[v] = u;
+                matched[u] = 1;
+                cnt++;
+                break;
+            }
+        }
+    }
+
     for (short i = 0; i < n; i++) {
-        timer++;
-        cnt += dfs(i);
+        if (!matched[i]) {
+            timer++;
+            cnt += dfs(i);
+        }
     }
 
     return (cnt == n);
