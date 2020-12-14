@@ -11,7 +11,7 @@
  
 using namespace std;
  
-//#define int ll
+//#define int short
  
 typedef long long ll;
 typedef long double ld;
@@ -28,7 +28,7 @@ mt19937 rng(1000 - 7);
 #endif
  
 const int N = 1e3 + 10;
-const int M = (1 << 6) + 2;
+const int M = (1 << 12) + 2;
 //const ll MOD = 998244353;
 const ll MOD = 1e9 + 7;
 const ld eps = 5e-8;
@@ -37,12 +37,11 @@ const pii dir[] = { { 0, 1 }, { 0, -1 }, { 1, 0 }, { -1, 0 } };
 #define set _set
 
 struct Elem {
-    string s;
-    int x, y;
+    int type, x, y;
 };
 
 int n, k;
-char dp[N][M];
+char used[N][M];
 Elem a[N];
 
 inline int get(int mask, int i) {
@@ -53,6 +52,70 @@ inline int set(int mask, int i, int val) {
     mask &= (~0 ^ (1 << i));
     mask |= (val << i);
     return mask;
+}
+
+pii calc(int i, int mask1) {
+    auto [type, x, y] = a[i];
+    int mask2, j;
+
+    if (type == 0) {
+        mask2 = mask1, j = i + 1;
+    }
+    else if (type == 1) {
+        mask2 = set(mask1, x, get(mask1, x) && get(mask1, y)), j = i + 1;
+    }
+    else if (type == 2) {
+        mask2 = set(mask1, x, get(mask1, x) || get(mask1, y)), j = i + 1;
+    }
+    else if (type == 3) {
+        mask2 = set(mask1, x, get(mask1, x) ^ get(mask1, y)), j = i + 1;
+    }
+    else if (type == 4) {
+        mask2 = set(mask1, x, get(mask1, y)), j = i + 1;
+    }
+    else if (type == 5) {
+        mask2 = set(mask1, x, y), j = i + 1;
+    }
+    else if (type == 6) {
+        mask2 = mask1 ^ (1 << x), j = i + 1;
+    }
+    else {
+        mask2 = mask1, j = (get(mask1, x) ? y : i + 1);
+    }
+
+    return { j, mask2 };
+}
+
+void dfs(int i, int mask1, int mask) {
+    used[i][mask1] = 1;
+
+    auto [j, mask2] = calc(i, mask1);
+    if (used[j][mask2] == 1) {
+        cout << "No\n";
+        for (int it = 0; it < k; it++) {
+            cout << get(mask, it);
+        }
+        cout << endl;
+        exit(0);
+    }
+
+    if (j < n && !used[j][mask2]) {
+        dfs(j, mask2, mask);
+    }
+
+    used[i][mask1] = 2;
+}
+
+int convert(string s) {
+    if (s == "begin" || s == "end") return 0;
+    if (s == "and") return 1;
+    if (s == "or") return 2;
+    if (s == "xor") return 3;
+    if (s == "move") return 4;
+    if (s == "set") return 5;
+    if (s == "not") return 6;
+    if (s == "jump") return 7;
+    assert(false);
 }
 
 signed main() {
@@ -70,82 +133,25 @@ signed main() {
         cin >> s;
 
         if (s == "begin" || s == "end") {
-            a[i] = { s, 0, 0 };
+            a[i] = { convert(s), 0, 0 };
         }
         else if (s == "not") {
             int x;
             cin >> x;
 
-            a[i] = { s, x, 0 };
+            a[i] = { convert(s), x, 0 };
         }
         else {
             int x, y;
             cin >> x >> y;
 
-            a[i] = { s, x, y };
+            a[i] = { convert(s), x, y };
         }
     }
 
-    for (int start = 0; start < (1 << k); start++) {
-        memset(dp, 0, sizeof dp);
-        dp[0][start] = 1;
-
-        queue <pii> q;
-        q.push({ 0, start });
-
-        while (!q.empty()) {
-            auto [i, mask1] = q.front();
-            q.pop();
-
-            auto [s, x, y] = a[i];
-            int mask2, j = i + 1;
-
-            if (s == "begin" || s == "end") {
-                mask2 = mask1;
-            }
-            if (s == "and") {
-                mask2 = set(mask1, x, get(mask1, x) & get(mask1, y));
-            }
-            if (s == "or") {
-                mask2 = set(mask1, x, get(mask1, x) | get(mask1, y));
-            }
-            if (s == "xor") {
-                mask2 = set(mask1, x, get(mask1, x) ^ get(mask1, y));
-            }
-            if (s == "move") {
-                mask2 = set(mask1, x, get(mask1, y));
-            }
-            if (s == "set") {
-                mask2 = set(mask1, x, y);
-            }
-            if (s == "not") {
-                mask2 = set(mask1, x, !get(mask1, x));
-            }
-            if (s == "jump") {
-                mask2 = mask1;
-                j = (get(mask1, x) ? y : i + 1);
-            }
-
-            if (!dp[j][mask2]) {
-                dp[j][mask2] = 1;
-                if (j < n) {
-                    q.push({ j, mask2 });
-                }
-            }
-        }
-
-        bool flag = false;
-        for (int mask = 0; mask < (1 << k); mask++) {
-            flag |= dp[n][mask];
-        }
-
-        if (!flag) {
-            cout << "No\n";
-            for (int i = 0; i < k; i++) {
-                cout << get(start, i);
-            }
-            cout << endl;
-            return 0;
+    for (int mask = 0; mask < (1 << k); mask++) {
+        if (!used[0][mask]) {
+            dfs(0, mask, mask);
         }
     }
 
