@@ -34,8 +34,7 @@ const ld eps = 5e-8;
 const pii dir[] = { { 0, 1 }, { 0, -1 }, { 1, 0 }, { -1, 0 } };
 
 int n, m, k;
-int ans[N][N], a[N][N];
-pair <int, int> cnt[N];
+int ans[N][N];
 
 signed main() {
 #ifdef LOCAL
@@ -46,38 +45,37 @@ signed main() {
     ios::sync_with_stdio(false), cin.tie(0), cout.tie(0);
 
     cin >> n >> m >> k;
+    int r = (n * k + m - 1) / m;
+    int t = (n + r - 1) / r * r;
 
-    for (int i = 0; i < n; i++) {
-        cnt[i] = { 0, i };
-    }
+    vector <int> a(n);
+    iota(a.begin(), a.end(), 1);
 
-    int t = 0;
-    for (bool flag = true; flag; t++) {
-        flag = false;
-
-        sort(cnt, cnt + n);
-
-        for (int i = 0; i < m; i++) {
-            auto& [x, y] = cnt[i];
-            if (x < k) {
-                x++;
-                ans[t][y] = 1;
-                flag = true;
-            }
-        }
-    }
-    t--;
-
-    assert(t == (n * k + m - 1) / m);
-
-    cout << t << endl;
     for (int i = 0; i < t; i++) {
+        for (int j = 0; j < n; j++) {
+            ans[i][j] = (a[j] <= m ? a[j] : 0);
+        }
+        rotate(a.begin(), --a.end(), a.end());
+    }
+
+    for (int j = 0; j < n; j++) {
+        int cnt = 0;
+        for (int i = 0; i < t; i += t / r) {
+            if (cnt == k) {
+                ans[i][j] = 0;
+            }
+            cnt += (ans[i][j] > 0);
+        }
+        //assert(cnt == k);
+    }
+
+    cout << r << endl;
+    for (int i = 0; i < t; i += t / r) {
         for (int j = 0; j < n; j++) {
             cout << ans[i][j] << " ";
         }
         cout << "\n";
     }
-
 
     return 0;
 }
