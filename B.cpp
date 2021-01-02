@@ -1,4 +1,5 @@
-﻿//#pragma GCC optimize("Ofast,unroll-loops")
+﻿
+//#pragma GCC optimize("Ofast,unroll-loops")
  
 #ifdef LOCAL
 #include "debug.h"
@@ -33,8 +34,40 @@ const ll MOD = 1e9 + 7;
 const ld eps = 5e-8;
 const pii dir[] = { { 0, 1 }, { 0, -1 }, { 1, 0 }, { -1, 0 } };
 
-int n, m, k;
+int n, m, k, r;
 int ans[N][N];
+vector <int> b[N];
+char used[N];
+
+bool solve(int step) {
+    memset(used, 0, sizeof used);
+
+    for (int it = 0, i = 0; it < r; it++, i = (i + step) % n) {
+        while (used[i]) {
+            i = (i + 1) % n;
+        }
+
+        for (int j = 0; j < n; j++) {
+            ans[it][j] = b[i][j];
+        }
+        used[i] = 1;
+        debug(step, b[i]);
+    }
+
+    bool flag = true;
+    for (int j = 0; j < n; j++) {
+        int cnt = 0;
+        for (int i = 0; i < r; i++) {
+            if (cnt == k) {
+                ans[i][j] = 0;
+            }
+            cnt += (ans[i][j] > 0);
+        }
+        flag &= (cnt == k);
+    }
+
+    return flag;
+}
 
 signed main() {
 #ifdef LOCAL
@@ -45,37 +78,34 @@ signed main() {
     ios::sync_with_stdio(false), cin.tie(0), cout.tie(0);
 
     cin >> n >> m >> k;
-    int r = (n * k + m - 1) / m;
-    int t = (n + r - 1) / r * r;
+    r = (n * k + m - 1) / m;
 
     vector <int> a(n);
-    iota(a.begin(), a.end(), 1);
+    for (int i = 0; i < n; i++) {
+        a[i] = (i < m ? i + 1 : 0);
+    }
 
-    for (int i = 0; i < t; i++) {
-        for (int j = 0; j < n; j++) {
-            ans[i][j] = (a[j] <= m ? a[j] : 0);
-        }
+    for (int i = 0; i < n; i++) {
+        b[i] = a;
+
+        debug(a);
         rotate(a.begin(), --a.end(), a.end());
     }
 
-    for (int j = 0; j < n; j++) {
-        int cnt = 0;
-        for (int i = 0; i < t; i += t / r) {
-            if (cnt == k) {
-                ans[i][j] = 0;
+    for (int step = 1; step <= n; step++) {
+        if (solve(step)) {
+            cout << r << endl;
+            for (int i = 0; i < r; i++) {
+                for (int j = 0; j < n; j++) {
+                    cout << ans[i][j] << " ";
+                }
+                cout << "\n";
             }
-            cnt += (ans[i][j] > 0);
+            return 0;
         }
-        //assert(cnt == k);
     }
 
-    cout << r << endl;
-    for (int i = 0; i < t; i += t / r) {
-        for (int j = 0; j < n; j++) {
-            cout << ans[i][j] << " ";
-        }
-        cout << "\n";
-    }
+    assert(false);
 
     return 0;
 }
