@@ -98,10 +98,15 @@ struct SuffixArray {
 };
 
 struct Tree {
-    int t[N];
+    int t[N], used[N], timer = 1;
 
     void update(int i, int x) {
         for (; i < N; i |= i + 1) {
+            if (used[i] < timer) {
+                t[i] = 0;
+                used[i] = timer;
+            }
+
             t[i] += x;
         }
     }
@@ -109,15 +114,24 @@ struct Tree {
     int get(int i) {
         int res = 0;
         for (; i >= 0; i = (i & (i + 1)) - 1) {
+            if (used[i] < timer) {
+                t[i] = 0;
+                used[i] = timer;
+            }
+
             res += t[i];
         }
         return res;
     }
 
-    void clear() {
-        memset(t, 0, sizeof t);
+    int get(int l, int r) {
+        return get(r) - (l ? get(l - 1) : 0);
     }
-} tree;
+
+    void clear() {
+        timer++;
+    }
+} tree, depth;
 
 const ll base = 228;
 
@@ -201,21 +215,22 @@ int dfs_less(int u, int d = 1, int p = -1) {
     return res;
 }
 
-unordered_map <int, int> depth;
+ll curans;
+SuffixArray suff;
+string str;
 
 void dfs_eq(int u, int mul, int p = -1, int d = 2) {
-    if (d - 1 == sz(t)) {
+    if (d == sz(str)) {
         return;
     }
 
     h1.push_back((h1.back() * base + (s[u] - 'a' + 1)) % MOD1);
     h2.push_back((h2.back() * base + (s[u] - 'a' + 1)) % MOD2);
 
-    depth[d] += (h1.back() == g1[d - 1] && h2.back() == g2[d - 1]) * mul;
+    int x = (h1.back() == g1[d - 1] && h2.back() == g2[d - 1]) * mul;
 
-    if (depth[d] == 0) {
-        depth.erase(d);
-    }
+    depth.update(suff.c[d], x);
+    curans += x * tree.get(suff.c[d]);
 
     for (int v : g[u]) {
         if (v != p && !used[v]) {
@@ -227,15 +242,13 @@ void dfs_eq(int u, int mul, int p = -1, int d = 2) {
     h2.pop_back();
 }
 
-int cnt[N];
 vector <pii> st;
-string str;
 
 inline char get(int i, int j) {
     return (i + j < sz(str) ? str[i + j] : '$');
 }
 
-void dfs_add(int u, const SuffixArray& suff, int flag, int p = -1) {
+void dfs_add(int u, int flag, int p = -1) {
     auto [l, r] = st.back();
 
     int lb = l - 1, rb = r, mid;
@@ -268,10 +281,11 @@ void dfs_add(int u, const SuffixArray& suff, int flag, int p = -1) {
 
     st.push_back({ L, R });
     tree.update(L, flag);
+    curans += flag * depth.get(L, sz(str) - 1);
 
     for (int v : g[u]) {
         if (v != p && !used[v]) {
-            dfs_add(v, suff, flag, u); 
+            dfs_add(v, flag, u); 
         }
     }
 
@@ -298,7 +312,6 @@ ll dfs_decomposition(int u) {
         }
     }
     int len = min(2 * d + 2, sz(t));
-    
     //debug(u, len, sz(t));
 
     int usize = 1;
@@ -310,8 +323,22 @@ ll dfs_decomposition(int u) {
     }
 
     ll ans = 0;
-    cur = string(1, s[u]);
-    h1 = h2 = vector <ll> (1, s[u] - 'a' + 1);
+
+    cur.clear();
+    cur += s[u];
+
+    h1.clear(), h2.clear();
+    h1.push_back(s[u] - 'a' + 1);
+    h2.push_back(s[u] - 'a' + 1);
+
+    str = t.substr(0, len) + '$';
+    suff = SuffixArray(str);
+    st.clear();
+    st.push_back({ 0, len + 1 });
+
+    curans = 0;
+    tree.clear();
+    depth.clear();
 
     for (int v : g[u]) {
         if (!used[v]) {
@@ -319,7 +346,6 @@ ll dfs_decomposition(int u) {
         }
     }
 
-    depth.clear();
     for (int v : g[u]) {
         if (!used[v]) {
             dfs_eq(v, 1);
@@ -330,35 +356,24 @@ ll dfs_decomposition(int u) {
         ans += usize;
     }
     else if (s[u] == t.front()) {
-        depth[1]++;
+        depth.update(suff.c[1], 1);
     }
 
-    for (auto [k, v] : depth) {
-        ans += v;
-    }
-
-    tree.clear();
-    str = t.substr(0, len) + '$';
-    SuffixArray suff = SuffixArray(str);
-    st = vector <pii> (1, make_pair(0, len + 1));
+    ans += depth.get(sz(str) - 1);
 
     for (int v : g[u]) {
         if (!used[v]) {
             dfs_eq(v, -1);
+            dfs_add(v, 1);
 
-            dfs_add(v, suff, 1);
+            ans += curans;
 
-            for (auto [i, x] : depth) {
-                ans += 1LL * x * tree.get(suff.c[i]);
-            }
-
-            dfs_add(v, suff, -1);
-           
+            dfs_add(v, -1);
             dfs_eq(v, 1);
         }
     }
 
-    debug(u, ans);
+    //debug(u, ans);
 
     for (int v : g[u]) {
         if (!used[v]) {
