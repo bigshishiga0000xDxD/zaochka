@@ -11,7 +11,7 @@
  
 using namespace std;
  
-#define int ll
+//#define int ll
  
 typedef long long ll;
 typedef long double ld;
@@ -27,7 +27,7 @@ mt19937 rng(chrono::steady_clock::now().time_since_epoch().count());
 mt19937 rng(1000 - 7);
 #endif
  
-const int N = 5e3 + 10;
+const int N = 1e5 + 10;
 //const ll MOD = 998244353;
 const ll MOD1 = 1e9 + 7;
 const ll MOD2 = 1e9 + 9;
@@ -45,7 +45,7 @@ struct SuffixArray {
 
     SuffixArray(const string& str) {
         int n = str.size();
-        vector <vector <int>> cnt(max(n, 256LL)), cnt2(n);
+        vector <vector <int>> cnt(max(n, 256)), cnt2(n);
 
         for (int i = 0; i < n; i++) {
             cnt[str[i]].push_back(i);
@@ -97,6 +97,32 @@ struct SuffixArray {
     }
 };
 
+struct Tree {
+    int t[N];
+
+    void update(int i, int x) {
+        for (; i < N; i |= i + 1) {
+            t[i] += x;
+        }
+    }
+
+    int get(int i) {
+        int res = 0;
+        for (; i >= 0; i = (i & (i + 1)) - 1) {
+            res += t[i];
+        }
+        return res;
+    }
+
+    void clear() {
+        memset(t, 0, sizeof t);
+    }
+} tree;
+
+const ll base = 228;
+
+ll pw1[N], pw2[N], g1[N], g2[N];
+
 int n, m;
 vector <int> g[N];
 string t;
@@ -124,41 +150,69 @@ int dfs_centroid(int u, int m, int p = -1) {
     return u;
 }
 
-bool strless(const string& x, const string& y) {
-    for (int i = 0; i < int(min(x.size(), y.size())); i++) {
-        if (x[i] != y[i]) {
-            return x[i] < y[i];
+string cur;
+vector <ll> h1, h2;
+
+int dfs_less(int u, int d = 1, int p = -1) {
+    cur += s[u];
+    h1.push_back((h1.back() * base + (s[u] - 'a' + 1)) % MOD1);
+    h2.push_back((h2.back() * base + (s[u] - 'a' + 1)) % MOD2);
+
+    int l = 0, r = min(sz(h1), sz(t)), m;
+    while (r - l > 1) {
+        m = (l + r) / 2;
+
+        ll s1 = (h1.back() - (m == sz(h1) - 1 ? 0 : pw1[m + 1] * h1[sz(h1) - m - 2] % MOD1) + MOD1) % MOD1;
+        ll s2 = (h2.back() - (m == sz(h2) - 1 ? 0 : pw2[m + 1] * h2[sz(h2) - m - 2] % MOD2) + MOD2) % MOD2;
+
+        ll t1 = g1[m];
+        ll t2 = g2[m];
+
+        if (s1 == t1 && s2 == t2) {
+            l = m;
+        }
+        else {
+            r = m;
         }
     }
-    return false;
-}
 
-bool streq(const string& x, const string& y) {
-    return y.substr(0, x.size()) == x;
-}
+    if (s[u] != t.front()) {
+        r = 0;
+    }
 
-string cur;
-
-int dfs_less(int u, int p = -1) {
-    cur = s[u] + cur;
-    int res = strless(cur, t);
+    int res;
+    if (r == min(sz(h1), sz(t))) {
+        res = 0;    
+    }
+    else {
+        res = (cur[sz(cur) - r - 1] < t[r]);
+    }
 
     for (int v : g[u]) {
         if (v != p && !used[v]) {
-            res += dfs_less(v, u);
+            res += dfs_less(v, d + 1, u);
         }
     }
 
-    cur.erase(cur.begin());
+    h1.pop_back();
+    h2.pop_back();
+    cur.pop_back();
 
     return res;
 }
 
-map <int, int> depth;
+unordered_map <int, int> depth;
 
 void dfs_eq(int u, int mul, int p = -1, int d = 2) {
-    cur = s[u] + cur;
-    depth[d] += streq(cur, t) * mul;
+    if (d - 1 == sz(t)) {
+        return;
+    }
+
+    h1.push_back((h1.back() * base + (s[u] - 'a' + 1)) % MOD1);
+    h2.push_back((h2.back() * base + (s[u] - 'a' + 1)) % MOD2);
+
+    depth[d] += (h1.back() == g1[d - 1] && h2.back() == g2[d - 1]) * mul;
+
     if (depth[d] == 0) {
         depth.erase(d);
     }
@@ -169,23 +223,8 @@ void dfs_eq(int u, int mul, int p = -1, int d = 2) {
         }
     }
 
-    cur.erase(cur.begin());
-}
-
-
-int dfs_center(int u, int p = -1) {
-    cur += s[u];
-    int res = (cur <= t);
-
-    for (int v : g[u]) {
-        if (v != p && !used[v]) {
-            res += dfs_center(v, u);
-        }
-    }
-
-    cur.pop_back();
-
-    return res;
+    h1.pop_back();
+    h2.pop_back();
 }
 
 int cnt[N];
@@ -228,10 +267,7 @@ void dfs_add(int u, const SuffixArray& suff, int flag, int p = -1) {
     //debug(st, L, R, s[u]);
 
     st.push_back({ L, R });
-
-    for (int i = L; i < sz(str); i++) {
-        cnt[suff[i]] += flag;
-    }
+    tree.update(L, flag);
 
     for (int v : g[u]) {
         if (v != p && !used[v]) {
@@ -275,10 +311,11 @@ ll dfs_decomposition(int u) {
 
     ll ans = 0;
     cur = string(1, s[u]);
+    h1 = h2 = vector <ll> (1, s[u] - 'a' + 1);
 
     for (int v : g[u]) {
         if (!used[v]) {
-            ans += dfs_less(v) * (usize - sz[v]);
+            ans += 1LL * dfs_less(v) * (usize - sz[v]);
         }
     }
 
@@ -289,10 +326,18 @@ ll dfs_decomposition(int u) {
         }
     }
 
+    if (s[u] < t.front()) {
+        ans += usize;
+    }
+    else if (s[u] == t.front()) {
+        depth[1]++;
+    }
+
     for (auto [k, v] : depth) {
         ans += v;
     }
 
+    tree.clear();
     str = t.substr(0, len) + '$';
     SuffixArray suff = SuffixArray(str);
     st = vector <pii> (1, make_pair(0, len + 1));
@@ -304,7 +349,7 @@ ll dfs_decomposition(int u) {
             dfs_add(v, suff, 1);
 
             for (auto [i, x] : depth) {
-                ans += x * cnt[i];
+                ans += 1LL * x * tree.get(suff.c[i]);
             }
 
             dfs_add(v, suff, -1);
@@ -313,10 +358,7 @@ ll dfs_decomposition(int u) {
         }
     }
 
-    cur.clear();
-    ans += dfs_center(u); 
-
-    //debug(u, ans);
+    debug(u, ans);
 
     for (int v : g[u]) {
         if (!used[v]) {
@@ -335,7 +377,19 @@ signed main() {
     cout << fixed << setprecision(9);
     ios::sync_with_stdio(false), cin.tie(0), cout.tie(0);
 
+    pw1[0] = pw2[0] = 1;
+    for (int i = 1; i < N; i++) {
+        pw1[i] = pw1[i - 1] * base % MOD1;
+        pw2[i] = pw2[i - 1] * base % MOD2;
+    }
+
     cin >> n >> m >> t;
+
+    g1[0] = g2[0] = (t.front() - 'a' + 1);
+    for (int i = 1; i < m; i++) {
+        g1[i] = (g1[i - 1] + (t[i] - 'a' + 1) * pw1[i]) % MOD1;
+        g2[i] = (g2[i - 1] + (t[i] - 'a' + 1) * pw2[i]) % MOD2;
+    }
 
     for (int i = 0; i < n; i++) {
         cin >> s[i];
