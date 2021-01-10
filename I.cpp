@@ -77,9 +77,10 @@ struct Array {
 };
 
 vector <int> d[W];
+ll paths[W];
 
 struct Solver {
-    Array <int> cnt, cur;
+    Array <int> cnt;
 
     void clear() {
         cnt.clear();
@@ -91,26 +92,10 @@ struct Solver {
         }
     }
 
-    ll solve(int x) {
-        ll res = x;
-        //debug(x, d[x]);
-
-        cur.clear();
-        for (int i = 0; i < sz(d[x]); i++) {
-            int y = d[x][i];
-            int add = cnt[y];
-
-            for (int j = 0; j < i; j++) {
-                if (d[x][j] % y == 0) {
-                    add -= cur[d[x][j]];
-                }
-            }
-
-            cur[y] = add;
-            res += 1LL * y * add;
+    void solve(int x) {
+        for (int y : d[x]) {
+            paths[y] += 2 * (cnt[y] + 1);
         }
-
-        return 2 * res;
     }
 } solver;
 
@@ -125,19 +110,17 @@ void dfs_add(int u, vector <int>& a, int cur, int p = -1) {
 
 vector <int> b;
 
-ll dfs_decomposition(int u) {
+void dfs_decomposition(int u) {
     used[u] = 1;
 
-    ll res = 0;
     solver.clear();
-
     for (auto [v, w] : g[u]) {
         if (!used[v]) {
             b.clear();
             dfs_add(v, b, w);
 
             for (int x : b) {
-                res += solver.solve(x);
+                solver.solve(x);
             }
             for (int x : b) {
                 solver.add(x);
@@ -148,15 +131,10 @@ ll dfs_decomposition(int u) {
     for (auto [v, w] : g[u]) {
         if (!used[v]) {
             dfs_size(v);
-            res += dfs_decomposition(dfs_centroid(v, sz[v]));
+            dfs_decomposition(dfs_centroid(v, sz[v]));
         }
     }
-
-    return res;
 }
-
-//void calc() __attribute__ ((optimize(3)));
-
 
 void calc() {
     for (int i = 1; i < W; i++) {
@@ -175,6 +153,8 @@ void calc() {
     }
     //exit(0);
 }
+
+ll dp[W];
 
 signed main() {
 #ifdef LOCAL
@@ -197,7 +177,18 @@ signed main() {
     b.reserve(n);
 
     dfs_size(1);
-    cout << dfs_decomposition(dfs_centroid(1, n));
+    dfs_decomposition(dfs_centroid(1, n));
+
+    ll ans = 0;
+    for (int i = W - 1; i; i--) {
+        dp[i] = paths[i];
+        for (int j = 2 * i; j < W; j += i) {
+            dp[i] -= dp[j];
+        }
+        ans += i * dp[i];
+    }
+
+    cout << ans << endl;
 
     return 0;
 }
